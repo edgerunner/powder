@@ -113,9 +113,11 @@ module Powder
        say "powder #{Powder::VERSION}"
     end
     
-        desc "config", "Shows current pow configuration"
+    desc "config", "Shows current pow configuration"
     def config
-      json = eval %x{curl --silent -H host:pow localhost/config.json}.gsub(':','=>')
+      results = %x{curl --silent -H host:pow localhost/config.json}.gsub(':','=>')
+      return say("Error: Cannot get Pow config. Pow may be down. Try 'powder up' first.") if results.empty?
+      json = eval results
       json.each do |k,v|
         case v
         when String, Numeric
@@ -125,10 +127,12 @@ module Powder
         end
       end
     end
-    
+
     desc "status", "Shows current pow status"
     def status
-      json = eval %x{curl --silent -H host:pow localhost/status.json}.gsub(':','=>')
+      results = %x{curl --silent -H host:pow localhost/status.json}.gsub(':','=>')
+      return say("Error: Cannot get Pow status. Pow may be down. Try 'powder up' first.") if results.empty?
+      json = eval results
       json.each {|k,v| say "#{k.ljust(12, ' ')} #{v}"}
     end
 
@@ -148,7 +152,7 @@ module Powder
       elsif legacy = (is_rails2_app? || is_radiant_app?)
         say "This appears to be a #{legacy} applicaton. You need a config.ru file."
         if yes? "Do you want to autogenerate a basic config.ru for #{legacy}?"
-          uri = URI.parse("https://gist.github.com/909308.txt")
+          uri = URI.parse("https://raw.github.com/gist/909308")
           http = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -177,7 +181,7 @@ module Powder
     end
 
     def domain
-      if File.exists? '~/.powconfig'
+      if File.exists? File.expand_path('~/.powconfig')
         returned_domain = %x{source ~/.powconfig; echo $POW_DOMAINS}.gsub("\n", "").split(",").first
         returned_domain = %x{source ~/.powconfig; echo $POW_DOMAIN}.gsub("\n", "") if returned_domain.nil? || returned_domain.empty?
         returned_domain = 'dev' if returned_domain.nil? || returned_domain.empty?
